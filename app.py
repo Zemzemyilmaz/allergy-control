@@ -1,4 +1,4 @@
-import streamlit as st
+import PIL.Image
 import streamlit as st
 
 ALLERGENS = {
@@ -19,8 +19,9 @@ st.set_page_config(page_title="Alerjen Asistanı", page_icon="🛡️")
 st.set_page_config(page_title="Alerjen Asistanı", page_icon="🛡️")
 st.title("🛡️ Alerjen Güvenlik Asistanı")
 
-lang = st.selectbox("Dil Seçin / Select Language", ["tr", "en", "fi", "ru", "sv", "ar", "uk"])
-etiket = st.text_area("İçindekiler listesini buraya yapıştırın:")
+# Dil seçeneklerini genişletiyoruz
+diller = ["tr", "en", "fi", "ru", "sv", "ar", "uk"]
+lang = st.selectbox("Dil Seçin / Select Language / Valitse kieli", diller)
 
 if st.button("Analiz Et", key="analiz_butonu"):
     st.write("Analiz ediliyor...")
@@ -32,4 +33,31 @@ if st.button("Analiz Et", key="analiz_butonu"):
             st.success(f"✅ {alerjen} bulunamadı.")
 
 kamera_foto = st.camera_input("Ürün etiketini çek")
+if kamera_foto is not None:
+    # Fotoğrafı al ve görüntü nesnesine çevir
+    img = PIL.Image.open(kamera_foto)
+    st.image(img, caption="Etiket görüntüsü alındı", use_column_width=True)
+    st.write("📸 Görüntü başarıyla işlendi! Şimdi analiz butonuna basabilirsin.")
+
 st.warning("⚠️ ÖNEMLİ: Bu araç genel bilgi amaçlıdır. Çölyak ve bağırsak hassasiyeti gibi durumlarda mutlaka ürünün 'Glutensiz' sertifikasına bakın.")
+import google.generativeai as genai
+
+# Google API anahtarını kasadan (Secrets) çekiyoruz
+genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+
+def analyze_label(image, language):
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Yapay zekaya annenin sağlığı için net bir talimat veriyoruz
+    prompt = f"Bu etiketi {language} dilinde analiz et. İçindekiler listesinde gluten, süt, yumurta gibi riskli alerjenler varsa RİSKLİ de, yoksa GÜVENLİ de. Sadece sonucu söyle."
+    response = model.generate_content([prompt, image])
+    return response.text
+
+# AI Analiz Butonu
+if st.button("AI ile Analiz Et"):
+    if kamera_foto:
+        with st.spinner("🧠 Yapay zeka etiketi okuyor..."):
+            analysis = analyze_label(img, lang)
+            st.write(f"### Analiz Sonucu:")
+            st.write(analysis)
+    else:
+        st.warning("Lütfen önce bir fotoğraf çek!")
